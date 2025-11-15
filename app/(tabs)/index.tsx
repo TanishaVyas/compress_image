@@ -155,14 +155,6 @@ export default function HomeScreen() {
     setIsCompressing(true);
     setError(null);
     try {
-      // Parse compression percentage (0-100) and convert to quality using a curve that better matches file size reduction
-      // JPEG quality doesn't map linearly to file size - we use a non-linear curve
-      // 0% compression = 100% quality (1.0), 100% compression = 60% quality (0.6)
-      // This curve better approximates file size reduction percentage
-      const compressionValue = Math.max(0, Math.min(100, parseFloat(compressionPercentage) || 40)) / 100;
-      // Use a curve: quality = 1.0 - (compressionValue^1.2 * 0.4)
-      // This provides better correlation between compression % and file size reduction
-      const compressionQuality = 1.0 - (Math.pow(compressionValue, 1.2) * 0.4);
 
       // Only resize if target width is explicitly provided by user
       // Dimensions remain unchanged unless user specifies a width
@@ -178,6 +170,16 @@ export default function HomeScreen() {
 
       const actions = resizeAction ? [resizeAction] : [];
 
+      // Parse compression percentage (0-100) and convert to quality using a curve that better matches file size reduction
+      // JPEG quality doesn't map linearly to file size - we use a non-linear curve
+      // 0% compression = 100% quality (1.0), 100% compression = 60% quality (0.6)
+      // This curve better approximates file size reduction percentage
+      const compressionValue = Math.max(0, Math.min(100, parseFloat(compressionPercentage) || 40)) / 100;
+      // Use a curve: quality = 1.0 - (compressionValue^1.2 * 0.4)
+      // This provides better correlation between compression % and file size reduction
+      const compressionQuality = 1.0 - (Math.pow(compressionValue, 1.2) * 0.4);
+
+      
       // Use quality curve (0.6-1.0) that better matches compression percentage to file size reduction
       // Dimensions only change if user explicitly provides target width
       const manipResult = await ImageManipulator.manipulateAsync(
