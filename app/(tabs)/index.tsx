@@ -3,8 +3,8 @@ import { Image } from 'expo-image';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import * as Sharing from 'expo-sharing';
-import { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, GestureResponderEvent, LayoutChangeEvent, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 type PickedImage = {
   uri: string;
@@ -40,6 +40,10 @@ export default function HomeScreen() {
   const [compressedImage, setCompressedImage] = useState<PickedImage>();
   const [isCompressing, setIsCompressing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [compressionPercentage, setCompressionPercentage] = useState<string>('40');
+  const [targetWidth, setTargetWidth] = useState<string>('');
+  const sliderWidth = useRef<number>(0);
+  const [sliderLayout, setSliderLayout] = useState({ width: 0, x: 0 });
 
   const compressionSavings = useMemo(() => {
     if (!originalImage?.size || !compressedImage?.size) return null;
@@ -82,6 +86,36 @@ export default function HomeScreen() {
     }
   };
 
+  const handleSliderLayout = (event: LayoutChangeEvent) => {
+    const { width, x } = event.nativeEvent.layout;
+    sliderWidth.current = width;
+    setSliderLayout({ width, x });
+  };
+
+  const handleSliderPress = (event: GestureResponderEvent) => {
+    if (sliderWidth.current === 0) return;
+    const { locationX } = event.nativeEvent;
+    const percentage = Math.max(0, Math.min(100, Math.round((locationX / sliderWidth.current) * 100)));
+    setCompressionPercentage(percentage.toString());
+  };
+
+  const handleSliderPressIn = (event: GestureResponderEvent) => {
+    handleSliderPress(event);
+  };
+
+  const handleStartShouldSetResponder = () => true;
+  const handleMoveShouldSetResponder = () => true;
+
+  const handleSliderMove = (event: GestureResponderEvent) => {
+    if (sliderWidth.current === 0) return;
+    const touch = event.nativeEvent.touches?.[0];
+    if (!touch) return;
+    // Calculate relative position within the slider
+    const relativeX = touch.pageX - sliderLayout.x;
+    const percentage = Math.max(0, Math.min(100, Math.round((relativeX / sliderWidth.current) * 100)));
+    setCompressionPercentage(percentage.toString());
+  };
+
   const pickImage = async () => {
     setError(null);
     setCompressedImage(undefined);
@@ -121,11 +155,36 @@ export default function HomeScreen() {
     setIsCompressing(true);
     setError(null);
     try {
+      // Parse compression percentage (0-100) and convert to quality using a curve that better matches file size reduction
+      // JPEG quality doesn't map linearly to file size - we use a non-linear curve
+      // 0% compression = 100% quality (1.0), 100% compression = 60% quality (0.6)
+      // This curve better approximates file size reduction percentage
+      const compressionValue = Math.max(0, Math.min(100, parseFloat(compressionPercentage) || 40)) / 100;
+      // Use a curve: quality = 1.0 - (compressionValue^1.2 * 0.4)
+      // This provides better correlation between compression % and file size reduction
+      const compressionQuality = 1.0 - (Math.pow(compressionValue, 1.2) * 0.4);
+
+      // Only resize if target width is explicitly provided by user
+      // Dimensions remain unchanged unless user specifies a width
+      let resizeAction: ImageManipulator.Action | undefined;
+      if (targetWidth.trim()) {
+        const width = parseInt(targetWidth.trim(), 10);
+        if (width > 0 && width !== originalImage.width) {
+          const aspectRatio = originalImage.height / originalImage.width;
+          const calculatedHeight = Math.round(width * aspectRatio);
+          resizeAction = { resize: { width, height: calculatedHeight } };
+        }
+      }
+
+      const actions = resizeAction ? [resizeAction] : [];
+
+      // Use quality curve (0.6-1.0) that better matches compression percentage to file size reduction
+      // Dimensions only change if user explicitly provides target width
       const manipResult = await ImageManipulator.manipulateAsync(
         originalImage.uri,
-        [],
+        actions,
         {
-          compress: 0.4,
+          compress: compressionQuality, // High quality (0.9-1.0) to minimize blur
           format: ImageManipulator.SaveFormat.JPEG,
         }
       );
@@ -171,6 +230,70 @@ export default function HomeScreen() {
       <Pressable style={styles.primaryButton} onPress={pickImage}>
         <Text style={styles.primaryButtonText}>{originalImage ? 'Pick another image' : 'Upload image'}</Text>
       </Pressable>
+
+      {originalImage && (
+        <View style={styles.settingsCard}>
+          <Text style={styles.settingsTitle}>Compression Settings</Text>
+          
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Compression Percentage (0-100%)</Text>
+            <View style={styles.sliderContainer}>
+              <View
+                style={styles.sliderTrack}
+                onLayout={handleSliderLayout}
+                onStartShouldSetResponder={handleStartShouldSetResponder}
+                onMoveShouldSetResponder={handleMoveShouldSetResponder}
+                onResponderGrant={handleSliderPressIn}
+                onResponderMove={handleSliderMove}
+                onResponderRelease={handleSliderPress}
+              >
+                <View
+                  style={[
+                    styles.sliderFill,
+                    { width: `${Math.max(0, Math.min(100, parseFloat(compressionPercentage) || 0))}%` },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.sliderThumb,
+                    { 
+                      left: `${Math.max(0, Math.min(100, parseFloat(compressionPercentage) || 0))}%`,
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+            <View style={styles.sliderValueContainer}>
+              <TextInput
+                style={styles.sliderInput}
+                value={compressionPercentage}
+                onChangeText={(text) => {
+                  const num = Math.max(0, Math.min(100, parseFloat(text) || 0));
+                  setCompressionPercentage(num.toString());
+                }}
+                keyboardType="numeric"
+                placeholder="40"
+                placeholderTextColor="#94a3b8"
+              />
+              <Text style={styles.percentageText}>%</Text>
+            </View>
+            <Text style={styles.inputHint}>Higher percentage = more compression (smaller file size, dimensions unchanged unless width is specified)</Text>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Target Width (pixels)</Text>
+            <TextInput
+              style={styles.input}
+              value={targetWidth}
+              onChangeText={setTargetWidth}
+              keyboardType="numeric"
+              placeholder={`${originalImage.width} (current)`}
+              placeholderTextColor="#94a3b8"
+            />
+            <Text style={styles.inputHint}>Height will be calculated automatically to maintain aspect ratio</Text>
+          </View>
+        </View>
+      )}
 
       {originalImage && (
         <Pressable
@@ -295,5 +418,103 @@ const styles = StyleSheet.create({
     color: '#dc2626',
     fontSize: 14,
     fontWeight: '500',
+  },
+  settingsCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+    gap: 16,
+  },
+  settingsTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#0f172a',
+    marginBottom: 4,
+  },
+  inputGroup: {
+    gap: 8,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0f172a',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    color: '#0f172a',
+    backgroundColor: '#f8fafc',
+  },
+  inputHint: {
+    fontSize: 12,
+    color: '#64748b',
+    fontStyle: 'italic',
+  },
+  sliderContainer: {
+    marginVertical: 8,
+  },
+  sliderTrack: {
+    height: 8,
+    backgroundColor: '#e2e8f0',
+    borderRadius: 4,
+    position: 'relative',
+    width: '100%',
+    paddingVertical: 6, // Increase touch area
+    marginVertical: -6, // Compensate for padding
+  },
+  sliderFill: {
+    height: '100%',
+    backgroundColor: '#2563eb',
+    borderRadius: 4,
+    position: 'absolute',
+    left: 0,
+    top: 0,
+  },
+  sliderThumb: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#2563eb',
+    borderWidth: 2,
+    borderColor: '#fff',
+    position: 'absolute',
+    top: -6,
+    marginLeft: -10,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  sliderValueContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  sliderInput: {
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 16,
+    color: '#0f172a',
+    backgroundColor: '#f8fafc',
+    width: 80,
+  },
+  percentageText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#0f172a',
   },
 });
