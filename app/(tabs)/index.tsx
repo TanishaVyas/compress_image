@@ -3,8 +3,8 @@ import { Image } from 'expo-image';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import * as Sharing from 'expo-sharing';
-import { useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, GestureResponderEvent, LayoutChangeEvent, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 type PickedImage = {
   uri: string;
@@ -42,8 +42,6 @@ export default function HomeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [qualityPercentage, setQualityPercentage] = useState<string>('80');
   const [targetWidth, setTargetWidth] = useState<string>('');
-  const sliderWidth = useRef<number>(0);
-  const [sliderLayout, setSliderLayout] = useState({ width: 0, x: 0 });
 
   const compressionSavings = useMemo(() => {
     if (!originalImage?.size || !compressedImage?.size) return null;
@@ -84,36 +82,6 @@ export default function HomeScreen() {
       console.error(e);
       setError('Unable to download image. Please try again.');
     }
-  };
-
-  const handleSliderLayout = (event: LayoutChangeEvent) => {
-    const { width, x } = event.nativeEvent.layout;
-    sliderWidth.current = width;
-    setSliderLayout({ width, x });
-  };
-
-  const handleSliderPress = (event: GestureResponderEvent) => {
-    if (sliderWidth.current === 0) return;
-    const { locationX } = event.nativeEvent;
-    const percentage = Math.max(0, Math.min(100, Math.round((locationX / sliderWidth.current) * 100)));
-    setQualityPercentage(percentage.toString());
-  };
-
-  const handleSliderPressIn = (event: GestureResponderEvent) => {
-    handleSliderPress(event);
-  };
-
-  const handleStartShouldSetResponder = () => true;
-  const handleMoveShouldSetResponder = () => true;
-
-  const handleSliderMove = (event: GestureResponderEvent) => {
-    if (sliderWidth.current === 0) return;
-    const touch = event.nativeEvent.touches?.[0];
-    if (!touch) return;
-    // Calculate relative position within the slider
-    const relativeX = touch.pageX - sliderLayout.x;
-    const percentage = Math.max(0, Math.min(100, Math.round((relativeX / sliderWidth.current) * 100)));
-    setQualityPercentage(percentage.toString());
   };
 
   const pickImage = async () => {
@@ -248,35 +216,9 @@ export default function HomeScreen() {
           
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Quality Percentage (0-100%)</Text>
-            <View style={styles.sliderContainer}>
-              <View
-                style={styles.sliderTrack}
-                onLayout={handleSliderLayout}
-                onStartShouldSetResponder={handleStartShouldSetResponder}
-                onMoveShouldSetResponder={handleMoveShouldSetResponder}
-                onResponderGrant={handleSliderPressIn}
-                onResponderMove={handleSliderMove}
-                onResponderRelease={handleSliderPress}
-              >
-                <View
-                  style={[
-                    styles.sliderFill,
-                    { width: `${Math.max(0, Math.min(100, isNaN(parseFloat(qualityPercentage)) ? 80 : parseFloat(qualityPercentage)))}%` },
-                  ]}
-                />
-                <View
-                  style={[
-                    styles.sliderThumb,
-                    { 
-                      left: `${Math.max(0, Math.min(100, isNaN(parseFloat(qualityPercentage)) ? 80 : parseFloat(qualityPercentage)))}%`,
-                    },
-                  ]}
-                />
-              </View>
-            </View>
-            <View style={styles.sliderValueContainer}>
+            <View style={styles.qualityInputContainer}>
               <TextInput
-                style={styles.sliderInput}
+                style={styles.input}
                 value={qualityPercentage}
                 onChangeText={(text) => {
                   // Allow empty string while typing
@@ -479,58 +421,10 @@ const styles = StyleSheet.create({
     color: '#64748b',
     fontStyle: 'italic',
   },
-  sliderContainer: {
-    marginVertical: 8,
-  },
-  sliderTrack: {
-    height: 8,
-    backgroundColor: '#e2e8f0',
-    borderRadius: 4,
-    position: 'relative',
-    width: '100%',
-    paddingVertical: 6, // Increase touch area
-    marginVertical: -6, // Compensate for padding
-  },
-  sliderFill: {
-    height: '100%',
-    backgroundColor: '#2563eb',
-    borderRadius: 4,
-    position: 'absolute',
-    left: 0,
-    top: 0,
-  },
-  sliderThumb: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#2563eb',
-    borderWidth: 2,
-    borderColor: '#fff',
-    position: 'absolute',
-    top: -6,
-    marginLeft: -10,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-  },
-  sliderValueContainer: {
+  qualityInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 4,
-  },
-  sliderInput: {
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 16,
-    color: '#0f172a',
-    backgroundColor: '#f8fafc',
-    width: 80,
   },
   percentageText: {
     fontSize: 16,
