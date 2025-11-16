@@ -40,7 +40,7 @@ export default function HomeScreen() {
   const [compressedImage, setCompressedImage] = useState<PickedImage>();
   const [isCompressing, setIsCompressing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [compressionPercentage, setCompressionPercentage] = useState<string>('40');
+  const [qualityPercentage, setQualityPercentage] = useState<string>('80');
   const [targetWidth, setTargetWidth] = useState<string>('');
   const sliderWidth = useRef<number>(0);
   const [sliderLayout, setSliderLayout] = useState({ width: 0, x: 0 });
@@ -96,7 +96,7 @@ export default function HomeScreen() {
     if (sliderWidth.current === 0) return;
     const { locationX } = event.nativeEvent;
     const percentage = Math.max(0, Math.min(100, Math.round((locationX / sliderWidth.current) * 100)));
-    setCompressionPercentage(percentage.toString());
+    setQualityPercentage(percentage.toString());
   };
 
   const handleSliderPressIn = (event: GestureResponderEvent) => {
@@ -113,7 +113,7 @@ export default function HomeScreen() {
     // Calculate relative position within the slider
     const relativeX = touch.pageX - sliderLayout.x;
     const percentage = Math.max(0, Math.min(100, Math.round((relativeX / sliderWidth.current) * 100)));
-    setCompressionPercentage(percentage.toString());
+    setQualityPercentage(percentage.toString());
   };
 
   const pickImage = async () => {
@@ -170,23 +170,32 @@ export default function HomeScreen() {
 
       const actions = resizeAction ? [resizeAction] : [];
 
-      // Parse compression percentage (0-100) and convert to quality using a curve that better matches file size reduction
-      // JPEG quality doesn't map linearly to file size - we use a non-linear curve
-      // 0% compression = 100% quality (1.0), 100% compression = 60% quality (0.6)
-      // This curve better approximates file size reduction percentage
-      const compressionValue = Math.max(0, Math.min(100, parseFloat(compressionPercentage) || 40)) / 100;
-      // Use a curve: quality = 1.0 - (compressionValue^1.2 * 0.4)
-      // This provides better correlation between compression % and file size reduction
-      const compressionQuality = 1.0 - (Math.pow(compressionValue, 1.2) * 0.4);
+      // Parse quality percentage (0-100) and convert to quality value (0.0-1.0)
+      // Quality directly maps to JPEG compression: 100% = best quality, 0% = maximum compression
+      const rawQuality = Number.parseFloat(qualityPercentage);
+      const qualityPct = Number.isFinite(rawQuality) ? Math.max(0, Math.min(100, rawQuality)) : 80;
+      const qualityValue = qualityPct / 100;
 
-      
-      // Use quality curve (0.6-1.0) that better matches compression percentage to file size reduction
+      // If user explicitly chose 100% quality AND no resize requested, avoid recompressing
+      if (qualityPct === 100 && !resizeAction) {
+        const size = await getFileSize(originalImage.uri);
+        setCompressedImage({
+          uri: originalImage.uri,
+          width: originalImage.width,
+          height: originalImage.height,
+          size,
+        });
+        setIsCompressing(false);
+        return;
+      }
+
+      // Use quality value directly (0.0-1.0) for JPEG compression
       // Dimensions only change if user explicitly provides target width
       const manipResult = await ImageManipulator.manipulateAsync(
         originalImage.uri,
         actions,
         {
-          compress: compressionQuality, // High quality (0.9-1.0) to minimize blur
+          compress: qualityValue, // Quality: 1.0 = best quality, 0.0 = maximum compression
           format: ImageManipulator.SaveFormat.JPEG,
         }
       );
@@ -238,7 +247,7 @@ export default function HomeScreen() {
           <Text style={styles.settingsTitle}>Compression Settings</Text>
           
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Compression Percentage (0-100%)</Text>
+            <Text style={styles.inputLabel}>Quality Percentage (0-100%)</Text>
             <View style={styles.sliderContainer}>
               <View
                 style={styles.sliderTrack}
@@ -252,14 +261,14 @@ export default function HomeScreen() {
                 <View
                   style={[
                     styles.sliderFill,
-                    { width: `${Math.max(0, Math.min(100, parseFloat(compressionPercentage) || 0))}%` },
+                    { width: `${Math.max(0, Math.min(100, isNaN(parseFloat(qualityPercentage)) ? 80 : parseFloat(qualityPercentage)))}%` },
                   ]}
                 />
                 <View
                   style={[
                     styles.sliderThumb,
                     { 
-                      left: `${Math.max(0, Math.min(100, parseFloat(compressionPercentage) || 0))}%`,
+                      left: `${Math.max(0, Math.min(100, isNaN(parseFloat(qualityPercentage)) ? 80 : parseFloat(qualityPercentage)))}%`,
                     },
                   ]}
                 />
@@ -268,18 +277,27 @@ export default function HomeScreen() {
             <View style={styles.sliderValueContainer}>
               <TextInput
                 style={styles.sliderInput}
-                value={compressionPercentage}
+                value={qualityPercentage}
                 onChangeText={(text) => {
-                  const num = Math.max(0, Math.min(100, parseFloat(text) || 0));
-                  setCompressionPercentage(num.toString());
+                  // Allow empty string while typing
+                  if (text === '') {
+                    setQualityPercentage('');
+                    return;
+                  }
+                  const parsed = parseFloat(text);
+                  // Allow 0 as a valid value (0 is falsy, so we check isNaN instead)
+                  if (!isNaN(parsed)) {
+                    const num = Math.max(0, Math.min(100, parsed));
+                    setQualityPercentage(num.toString());
+                  }
                 }}
                 keyboardType="numeric"
-                placeholder="40"
+                placeholder="80"
                 placeholderTextColor="#94a3b8"
               />
               <Text style={styles.percentageText}>%</Text>
             </View>
-            <Text style={styles.inputHint}>Higher percentage = more compression (smaller file size, dimensions unchanged unless width is specified)</Text>
+            <Text style={styles.inputHint}>Higher percentage = better quality (larger file size). Lower percentage = more compression (smaller file size). Dimensions unchanged unless width is specified.</Text>
           </View>
 
           <View style={styles.inputGroup}>
