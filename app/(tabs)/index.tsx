@@ -124,6 +124,7 @@ export default function HomeScreen() {
     setError(null);
     try {
 
+      //resize image
       // Only resize if target width is explicitly provided by user
       // Dimensions remain unchanged unless user specifies a width
       let resizeAction: ImageManipulator.Action | undefined;
