@@ -4,7 +4,8 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import * as Sharing from 'expo-sharing';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { styles } from './index.styles';
 
 type PickedImage = {
   uri: string;
@@ -125,8 +126,6 @@ export default function HomeScreen() {
     try {
 
       //resize image
-      // Only resize if target width is explicitly provided by user
-      // Dimensions remain unchanged unless user specifies a width
       let resizeAction: ImageManipulator.Action | undefined;
       if (targetWidth.trim()) {
         const width = parseInt(targetWidth.trim(), 10);
@@ -140,12 +139,11 @@ export default function HomeScreen() {
       const actions = resizeAction ? [resizeAction] : [];
 
       // Parse quality percentage (0-100) and convert to quality value (0.0-1.0)
-      // Quality directly maps to JPEG compression: 100% = best quality, 0% = maximum compression
       const rawQuality = Number.parseFloat(qualityPercentage);
       const qualityPct = Number.isFinite(rawQuality) ? Math.max(0, Math.min(100, rawQuality)) : 80;
       const qualityValue = qualityPct / 100;
 
-      // If user explicitly chose 100% quality AND no resize requested, avoid recompressing
+      // If user chose 100% quality AND no resize requested, avoid recompressing
       if (qualityPct === 100 && !resizeAction) {
         const size = await getFileSize(originalImage.uri);
         setCompressedImage({
@@ -158,8 +156,7 @@ export default function HomeScreen() {
         return;
       }
 
-      // Use quality value directly (0.0-1.0) for JPEG compression
-      // Dimensions only change if user explicitly provides target width
+      // Dimensions only change if user provides target width
       const manipResult = await ImageManipulator.manipulateAsync(
         originalImage.uri,
         actions,
@@ -281,155 +278,3 @@ export default function HomeScreen() {
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    padding: 24,
-    backgroundColor: '#f8fafc',
-    gap: 16,
-  },
-  heading: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  subheading: {
-    fontSize: 16,
-    color: '#475569',
-  },
-  primaryButton: {
-    backgroundColor: '#2563eb',
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  secondaryButton: {
-    backgroundColor: '#e2e8f0',
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  secondaryButtonText: {
-    color: '#0f172a',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  previewCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
-  },
-  previewTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 12,
-    color: '#0f172a',
-  },
-  previewImage: {
-    width: '100%',
-    height: 220,
-    borderRadius: 12,
-    marginBottom: 12,
-    backgroundColor: '#cbd5f5',
-  },
-  metaText: {
-    fontSize: 14,
-    color: '#475569',
-  },
-  downloadButton: {
-    marginTop: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#cbd5f5',
-    backgroundColor: '#eef2ff',
-    alignItems: 'center',
-  },
-  downloadButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1d4ed8',
-  },
-  savingsCard: {
-    padding: 16,
-    borderRadius: 16,
-    backgroundColor: '#dcfce7',
-    borderWidth: 1,
-    borderColor: '#86efac',
-  },
-  savingsText: {
-    fontSize: 16,
-    color: '#166534',
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  errorText: {
-    color: '#dc2626',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  settingsCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
-    gap: 16,
-  },
-  settingsTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#0f172a',
-    marginBottom: 4,
-  },
-  inputGroup: {
-    gap: 8,
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#0f172a',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-    color: '#0f172a',
-    backgroundColor: '#f8fafc',
-  },
-  inputHint: {
-    fontSize: 12,
-    color: '#64748b',
-    fontStyle: 'italic',
-  },
-  qualityInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  percentageText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#0f172a',
-  },
-});
