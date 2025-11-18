@@ -9,6 +9,10 @@ Images can be uploaded in **any format**, but the **output is always JPEG**.
 - Quality Percentage slider
 - Target Width Option
 
+## Live Demo
+You can try the deployed version here:  
+**https://compress-image-lyart.vercel.app/**
+
 ## Code Changes
 All major changes and compression logic are implemented in:
 
