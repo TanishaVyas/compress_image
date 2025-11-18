@@ -1,50 +1,23 @@
-# Welcome to your Expo app 👋
+# Image Compression App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A simple image compression tool built using React Native & Expo.  
+Images can be uploaded in **any format**, but the **output is always JPEG**.
 
-## Get started
+## Features
+- Upload images in any format
+- Output compressed image only in JPEG
+- Quality Percentage slider
+- Target Width Option
 
-1. Install dependencies
+## Code Changes
+All major changes and compression logic are implemented in:
 
-   ```bash
-   npm install
-   ```
+      app/(tabs)/index.tsx
 
-2. Start the app
+## How to Run
+      npm install
+      npx expo start
 
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Note
+- Input formats supported: PNG, JPG, JPEG, HEIC, WebP, BMP, TIFF
+- Output format: JPEG only
